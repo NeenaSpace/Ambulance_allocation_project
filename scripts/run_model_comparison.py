@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to compare binary vs. original model formulations
+Script to compare binary vs. original model formulations using all bases
 """
 
 import os
@@ -19,11 +19,10 @@ from src.models.binary_model import BinaryModel
 from src.visualization.model_comparison import plot_model_comparison
 
 def main():
-    parser = argparse.ArgumentParser(description='Compare binary vs. original model formulations')
+    parser = argparse.ArgumentParser(description='Compare binary vs. original model formulations using all bases')
     parser.add_argument('--instance', type=str, required=True, help='Instance name (e.g., 50-3004-6-7-35)')
-    parser.add_argument('--base', type=int, default=0, help='Base index to analyze')
     parser.add_argument('--periods', type=int, default=6, help='Number of time periods')
-    parser.add_argument('--ambulances', type=int, default=35, help='Number of ambulances')
+    parser.add_argument('--ambulances', type=int, default=50, help='Number of ambulances')
     parser.add_argument('--size', type=int, default=50, help='Graph size (nodes)')
     parser.add_argument('--config-sizes', type=str, default='100,500,1000,2000,5000', 
                         help='Comma-separated list of configuration sizes')
@@ -54,10 +53,22 @@ def main():
     adjacency = {node: set(G.neighbors(node)) for node in G.nodes}
     zones = list(G.nodes)
     
+    # Load all base nodes
+    all_base_nodes = []
+    for base_idx in range(5):  # Assuming 5 bases (0-4)
+        try:
+            base_nodes = loader.load_bases(args.instance, args.size)
+            if base_idx < len(base_nodes):
+                all_base_nodes.append(base_nodes[base_idx])
+        except Exception as e:
+            print(f"Warning: Could not load base {base_idx}: {e}")
+    
+    print(f"Using {len(all_base_nodes)} base stations")
+    
     # Load configurations
     config_path = os.path.join(args.config_dir, str(args.size), 
-                               f"{args.instance}-base{args.base}_t0_{args.periods-1}", 
-                               "configs.csv")
+                              f"{args.instance}-all_bases_t0_{args.periods-1}", 
+                              "configs.csv")
     df_full = pd.read_csv(config_path)
     
     # Initialize models
@@ -105,8 +116,7 @@ def main():
             # Original model
             print("  Solving original model...")
             start_orig = time.time()
-            base_nodes = loader.load_bases(args.instance, args.size)
-            model_orig, λ, y, z = base_model.build_model(zones, configs_subset, b_subset, args.ambulances, args.periods, base_nodes)
+            model_orig, λ, y, z = base_model.build_model(zones, configs_subset, b_subset, args.ambulances, args.periods, all_base_nodes)
             model_orig.setParam("TimeLimit", args.time_limit)
             model_orig.setParam("MIPGap", 0.01)
             model_orig.optimize()
@@ -116,7 +126,7 @@ def main():
             print("  Solving binary model...")
             start_bin = time.time()
             model_bin, Z, q, y_bin, z_bin = binary_model.build_model(
-                zones, configs_subset, b_subset, args.ambulances, args.periods, freq_bound, base_nodes
+                zones, configs_subset, b_subset, args.ambulances, args.periods, freq_bound, all_base_nodes
             )
             model_bin.setParam("TimeLimit", args.time_limit)
             model_bin.setParam("MIPGap", 0.01)
@@ -142,17 +152,18 @@ def main():
     
     # Create and save summary DataFrame
     scaling_df = pd.DataFrame(scaling_results)
-    scaling_df.to_csv(os.path.join(model_output_dir, "binarization_comparison_base_only.csv"), index=False)
+    scaling_df.to_csv(os.path.join(model_output_dir, "binarization_comparison_all_bases.csv"), index=False)
     
     # Create visualization
-    plot_model_comparison(scaling_df, vis_output_dir, "binarization_comparison_base_only")
+    plot_model_comparison(scaling_df, vis_output_dir, "binarization_comparison_all_bases")
     
     # Clean up
     base_model.cleanup()
     binary_model.cleanup()
     
     print("\n✅ Comparison complete! Results saved to:")
-    print(f"   - {os.path.join(model_output_dir, 'binarization_comparison_base_only.csv')}")
-    print(f"   - {os.path.join(vis_output_dir, 'binarization_comparison_base_only.png')}")  
+    print(f"   - {os.path.join(model_output_dir, 'binarization_comparison_all_bases.csv')}")
+    print(f"   - {os.path.join(vis_output_dir, 'binarization_comparison_all_bases.png')}")  
+
 if __name__ == "__main__":
     main()

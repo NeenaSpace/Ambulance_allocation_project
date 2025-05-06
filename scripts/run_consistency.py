@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to run model with consistency constraints
+Script to run model with consistency constraints using all bases
 """
 
 import os
@@ -18,11 +18,10 @@ from src.models.consistency_model import ConsistencyModel
 from src.visualization.coverage_plots import plot_coverage_analysis
 
 def main():
-    parser = argparse.ArgumentParser(description='Run model with consistency constraints')
+    parser = argparse.ArgumentParser(description='Run model with consistency constraints using all bases')
     parser.add_argument('--instance', type=str, required=True, help='Instance name (e.g., 50-3004-6-7-35)')
-    parser.add_argument('--base', type=int, default=0, help='Base index to analyze')
     parser.add_argument('--periods', type=int, default=6, help='Number of time periods')
-    parser.add_argument('--ambulances', type=int, default=35, help='Number of ambulances')
+    parser.add_argument('--ambulances', type=int, default=50, help='Number of ambulances')
     parser.add_argument('--size', type=int, default=50, help='Graph size (nodes)')
     parser.add_argument('--num-configs', type=int, default=10000, help='Number of configurations to consider')
     parser.add_argument('--max-freq', type=int, default=3, help='Maximum frequency for configurations')
@@ -57,8 +56,8 @@ def main():
     
     # Load configurations
     config_path = os.path.join(args.config_dir, str(args.size), 
-                               f"{args.instance}-base{args.base}_t0_{args.periods-1}", 
-                               "configs.csv")
+                              f"{args.instance}-all_bases_t0_{args.periods-1}", 
+                              "configs.csv")
     df = pd.read_csv(config_path).head(args.num_configs)
     
     configs = []
@@ -84,16 +83,25 @@ def main():
     model.initialize_environment()
     
     # Build and solve model
-    print(f"\nSolving consistency model with {args.num_configs} configurations...")
+    print(f"\nSolving consistency model with {args.num_configs} configurations (all bases)...")
     start_time = time.time()
     
+    # Load all base coordinates
+    all_base_coords = []
+    for base_idx in range(5):  # Assuming 5 bases (0-4)
+        try:
+            base_nodes = loader.load_bases(args.instance, args.size)
+            if base_idx < len(base_nodes):
+                base_coord = loader.clean_coord(base_nodes[base_idx])
+                all_base_coords.append(base_coord)
+        except Exception as e:
+            print(f"Warning: Could not load base {base_idx}: {e}")
     
-    base_coords = loader.load_bases(args.instance, args.size)
-    base_coords = [loader.clean_coord(node) for node in base_coords]
+    print(f"Using {len(all_base_coords)} base stations: {all_base_coords}")
 
     model_obj, Z, q, x, m, y, z = model.build_model(
         zones, configs, adjacency_cleaned, args.ambulances, args.periods,
-        args.max_freq, args.max_movement, base_coords
+        args.max_freq, args.max_movement, all_base_coords
     )
     
     model_obj.setParam("TimeLimit", args.time_limit)
@@ -127,7 +135,7 @@ def main():
         # Create visualization
         plot_coverage_analysis(
             coverage_by_zone_time, zones, args.periods, z.X,
-            vis_output_dir, "complete_coverage_analysis_base_only"
+            vis_output_dir, "complete_coverage_analysis_all_bases"
         )
         
         # Print coverage stats
@@ -146,7 +154,7 @@ def main():
 
     print("\n✅ Analysis complete! Results saved to:")
     if result_saved:
-        print(f"   - {os.path.join(vis_output_dir, 'complete_coverage_analysis_base_only.png')}")
+        print(f"   - {os.path.join(vis_output_dir, 'complete_coverage_analysis_all_bases.png')}")
 
 if __name__ == "__main__":
     main()

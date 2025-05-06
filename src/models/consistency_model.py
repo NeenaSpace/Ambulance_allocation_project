@@ -14,7 +14,7 @@ class ConsistencyModel(BinaryModel):
                     t_periods,
                     max_config_frequency=3,
                     max_movement=10,
-                    base_coords=None):
+                    all_base_coords=None):
         """Build the binarized model with consistency constraints"""
         # Reset model
         if self.model:
@@ -52,10 +52,11 @@ class ConsistencyModel(BinaryModel):
         
         # Constraints
         # only base_coords can have ambulances at time 0
-        if base_coords:
+        if all_base_coords is not None:   
             for i in zones:
-                if i not in base_coords:  
-                    self.model.addConstr(x[i, 0] == 0, f"no_ambulance_at_nonbase_{i}_0")            
+                if i not in all_base_coords:  
+                    self.model.addConstr(x[i, 0] == 0, f"no_ambulance_at_nonbase_{i}_0")       
+        
         # One-hot constraint
         for c in range(len(configs)):
             self.model.addConstr(

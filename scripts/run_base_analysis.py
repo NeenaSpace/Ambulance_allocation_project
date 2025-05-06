@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to run analysis on different bases
+Script to run analysis on all bases together
 """
 
 import os
@@ -18,11 +18,10 @@ from src.data_processing.data_loader import DataLoader
 from src.models.base_model import BaseModel
 
 def main():
-    parser = argparse.ArgumentParser(description='Run base analysis for different configuration sizes')
+    parser = argparse.ArgumentParser(description='Run analysis for all bases together with different configuration sizes')
     parser.add_argument('--instance', type=str, required=True, help='Instance name (e.g., 50-3004-6-7-35)')
-    parser.add_argument('--base', type=int, required=True, help='Base index to analyze')
     parser.add_argument('--periods', type=int, default=6, help='Number of time periods')
-    parser.add_argument('--ambulances', type=int, default=35, help='Number of ambulances')
+    parser.add_argument('--ambulances', type=int, default=50, help='Number of ambulances')
     parser.add_argument('--size', type=int, default=50, help='Graph size (nodes)')
     parser.add_argument('--min-configs', type=int, default=100, help='Minimum number of configurations')
     parser.add_argument('--max-configs', type=int, default=None, help='Maximum number of configurations')
@@ -35,7 +34,7 @@ def main():
     args = parser.parse_args()
     
     # Create results directories
-    model_output_dir = os.path.join(args.results_dir, "model_outputs", f"base{args.base}")
+    model_output_dir = os.path.join(args.results_dir, "model_outputs", "all_bases")
     vis_output_dir = os.path.join(args.results_dir, "visualizations", "analysis")
     os.makedirs(model_output_dir, exist_ok=True)
     os.makedirs(vis_output_dir, exist_ok=True)
@@ -43,7 +42,7 @@ def main():
     # Load data
     loader = DataLoader(args.data_dir)
     G = loader.load_graph(args.instance, args.size)
-    base_nodes = loader.load_bases(args.instance, args.size)
+    all_base_nodes = loader.load_all_bases(args.instance, args.size)
     
     # Create adjacency dictionary
     adjacency = {node: set(G.neighbors(node)) for node in G.nodes}
@@ -51,8 +50,8 @@ def main():
     
     # Load configurations
     config_path = os.path.join(args.config_dir, str(args.size), 
-                               f"{args.instance}-base{args.base}_t0_{args.periods-1}", 
-                               "configs.csv")
+                              f"{args.instance}-all_bases_t0_{args.periods-1}", 
+                              "configs.csv")
     df_full = pd.read_csv(config_path)
     total_configs = len(df_full)
     
@@ -66,7 +65,7 @@ def main():
                              args.num_steps, dtype=int).tolist()
     config_sizes = sorted(list(set(config_sizes)))  # Remove duplicates and sort
     
-    print(f"Running analysis for base {args.base} with config sizes: {config_sizes}")
+    print(f"Running analysis for all bases with config sizes: {config_sizes}")
     
     # Initialize model
     license_path = "./data/raw/gurobi.lic"
@@ -108,7 +107,7 @@ def main():
         
         # Build and solve model
         build_start = time.time()
-        model_obj, λ, y, z = model.build_model(zones, configs, b, args.ambulances, args.periods, base_nodes)
+        model_obj, λ, y, z = model.build_model(zones, configs, b, args.ambulances, args.periods, all_base_nodes)
         build_time = time.time() - build_start
         
         # Set parameters
@@ -148,7 +147,7 @@ def main():
     
     # Create and save summary DataFrame
     results_df = pd.DataFrame(results)
-    results_df.to_csv(os.path.join(model_output_dir, f"base{args.base}_analysis_base_only.csv"), index=False)    
+    results_df.to_csv(os.path.join(model_output_dir, "all_bases_analysis.csv"), index=False)    
     
     # Create visualization
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(30, 8))
@@ -158,7 +157,7 @@ def main():
     ax1.set_xscale('log')
     ax1.set_xlabel('Number of Configurations', fontsize=14)
     ax1.set_ylabel('Total Runtime (seconds)', fontsize=14)
-    ax1.set_title(f'Total Runtime vs Configuration Size (Base{args.base})', fontsize=16)
+    ax1.set_title('Total Runtime vs Configuration Size (All Bases)', fontsize=16)
     ax1.grid(True, alpha=0.3)
     
     # Plot 2: Build Time vs Optimize Time
@@ -167,7 +166,7 @@ def main():
     ax2.set_xscale('log')
     ax2.set_xlabel('Number of Configurations', fontsize=14)
     ax2.set_ylabel('Time (seconds)', fontsize=14)
-    ax2.set_title(f'Build Time vs Solve Time (Base{args.base})', fontsize=16)
+    ax2.set_title('Build Time vs Solve Time (All Bases)', fontsize=16)
     ax2.legend(fontsize=12)
     ax2.grid(True, alpha=0.3)
     
@@ -178,18 +177,18 @@ def main():
         ax3.set_xscale('log')
         ax3.set_xlabel('Number of Configurations', fontsize=14)
         ax3.set_ylabel('Fairness Gap', fontsize=14)
-        ax3.set_title(f'Fairness Gap vs Configuration Size (Base{args.base})', fontsize=16)
+        ax3.set_title('Fairness Gap vs Configuration Size (All Bases)', fontsize=16)
         ax3.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(os.path.join(vis_output_dir, f'base{args.base}_analysis_base_only.png'), dpi=300, bbox_inches='tight')    
+    plt.savefig(os.path.join(vis_output_dir, 'all_bases_analysis.png'), dpi=300, bbox_inches='tight')    
     
     # Clean up
     model.cleanup()
     
     print("\n✅ Analysis complete! Results saved to:")
-    print(f"   - {os.path.join(model_output_dir, f'base{args.base}_analysis_base_only.csv')}")
-    print(f"   - {os.path.join(vis_output_dir, f'base{args.base}_analysis_base_only.png')}")
+    print(f"   - {os.path.join(model_output_dir, 'all_bases_analysis.csv')}")
+    print(f"   - {os.path.join(vis_output_dir, 'all_bases_analysis.png')}")
 
 if __name__ == "__main__":
     main()

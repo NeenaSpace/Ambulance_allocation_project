@@ -13,7 +13,7 @@ class BinaryModel(BaseModel):
                 num_ambulances, 
                 t_periods,
                 max_config_frequency=5,
-                base_nodes=None):  
+                all_base_nodes=None):  
         """Build the binarized ILP model with unary expansion of integers"""
         # Reset model
         if self.model:
@@ -34,16 +34,16 @@ class BinaryModel(BaseModel):
         z = self.model.addVar(vtype=GRB.INTEGER, name="z")
         
         #  add base_nodes constraint
-        if base_nodes is not None:
+        if all_base_nodes is not None:
             valid_configs = []
             for i, config in enumerate(configs):
-                if config[0] in base_nodes:  
+                if config[0] in all_base_nodes:  
                     valid_configs.append(i)
             
             if valid_configs:
                 self.model.addConstr(
                     gp.quicksum(q[c] for c in range(len(configs)) if c not in valid_configs) == 0,
-                    "base_only_constraint"
+                    "all_bases_constraint"  
                 )
         
         # Constraints

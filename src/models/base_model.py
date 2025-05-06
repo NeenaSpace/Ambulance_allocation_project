@@ -25,7 +25,7 @@ class BaseModel:
                 coverage_matrix, 
                 num_ambulances, 
                 t_periods,
-                base_nodes=None): 
+                all_base_nodes=None): 
         """Build the basic ILP model with binary selection variables"""
         # Reset model
         if self.model:
@@ -37,20 +37,18 @@ class BaseModel:
         y = self.model.addVars(zones, vtype=GRB.INTEGER, name="y")
         z = self.model.addVar(vtype=GRB.INTEGER, name="z")
         
-        if base_nodes is not None:
+        if all_base_nodes is not None:
             valid_configs = []
             for i, config in enumerate(configs):
-                if config[0] in base_nodes:  
+                if config[0] in all_base_nodes:  
                     valid_configs.append(i)
             
             if valid_configs:
                 self.model.addConstr(
                     gp.quicksum(λ[c] for c in range(len(configs)) if c not in valid_configs) == 0,
-                    "base_only_constraint"
+                    "all_bases_constraint" 
                 )
-            else:
-                print("Warning: No valid configurations found for base nodes.")
-        
+            
         # Constraints
         # 1. Select exactly num_ambulances configs
         self.model.addConstr(

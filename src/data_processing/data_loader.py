@@ -19,6 +19,17 @@ class DataLoader:
             
         return G
     
+    def load_all_bases(self, instance, size):
+        """Load all base stations for the given instance"""
+        all_bases = []
+        
+        for base_idx in range(5):
+            base_nodes = self.load_bases(instance, size)
+            if base_idx < len(base_nodes):
+                all_bases.append(base_nodes[base_idx])
+        
+        return all_bases
+    
     def load_bases(self, instance_name, size=50):
         """Load base coordinates from a .bases file"""
         file_path = os.path.join(self.data_dir, str(size), f"{instance_name}.bases")
